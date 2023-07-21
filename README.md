@@ -1,4 +1,4 @@
-# blocklist
+# blocklist [![CI](https://github.com/pagescrape/blocklist/actions/workflows/rust.yml/badge.svg)](https://github.com/pagescrape/blocklist/actions/workflows/rust.yml)
 
 The project is based on blocklistproject. It provides perfect hash map/set structures for fast lookup of blocklisted items.
 
