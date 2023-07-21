@@ -3,6 +3,13 @@ name = "blocklist"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
+description = """
+The project is based on blocklistproject. It provides perfect hash map/set structures for fast lookup of blocklisted items.
+"""
+documentation = "https://docs.rs/blocklist"
+homepage = "https://github.com/pagescrape/blocklist"
+license = "MIT"
+repository = "https://github.com/pagescrape/blocklist"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
