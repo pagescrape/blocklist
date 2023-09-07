@@ -1,44 +1,80 @@
-use std::env;
-use std::fs::File;
-use std::io::{LineWriter, Write};
+use fst::SetBuilder;
+use std::fs::{self, File};
 use std::path::Path;
+use std::{env, io};
 
 pub type GenericError = Box<dyn std::error::Error + Send + Sync>;
 
-#[tokio::main]
-async fn main() -> Result<(), GenericError> {
+async fn fetch_list(name: &str) -> Result<Vec<String>, GenericError> {
     let response: String = reqwest::Client::new()
-        .get("https://blocklistproject.github.io/Lists/alt-version/ads-nl.txt")
+        .get(format!(
+            "https://blocklistproject.github.io/Lists/alt-version/{name}-nl.txt"
+        ))
         .send()
         .await?
         .text()
         .await?;
 
-    let ads = response.lines().filter(|line| !line.starts_with('#'));
+    let mut list = response
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .map(|line| line.to_string())
+        .collect::<Vec<String>>();
 
+    list.sort();
+
+    build_set_file(name, list.clone())?;
+
+    Ok(list)
+}
+
+fn build_set_file(name: &str, list: Vec<String>) -> Result<(), GenericError> {
     let out_dir = env::var("OUT_DIR").unwrap();
-    let mut file = LineWriter::new(File::create(Path::new(&out_dir).join("blocklist-ads.rs"))?);
+    let path = Path::new(&out_dir).join(format!("blocklist-{name}.fst"));
+    let _ = fs::remove_file(&path);
+    let file = File::create(path)?;
+    let wtr = io::BufWriter::new(file);
 
-    let mut set = phf_codegen::Set::<&'static str>::new();
+    let mut set = SetBuilder::new(wtr)?;
 
-    for ad in ads.into_iter() {
-        set.entry(ad);
+    for item in list.iter() {
+        let _ = set.insert(item)?;
     }
 
-    write!(
-        &mut file,
-        "/// Perfect hash set of advertisement links based on blocklistproject\n"
-    )
-    .unwrap();
-    write!(
-        &mut file,
-        "pub static BLOCKLIST_ADS_LINKS: phf::Set<&'static str> = {}",
-        set.build()
-    )
-    .unwrap();
-    write!(&mut file, ";\n").unwrap();
+    let _ = set.finish()?;
 
-    file.flush()?;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), GenericError> {
+    let blocked = vec![
+        "abuse",
+        "drugs",
+        "fraud",
+        "gambling",
+        "malware",
+        "phishing",
+        "piracy",
+        "porn",
+        "ransomware",
+        "redirect",
+        "scam",
+        "torrent",
+        "tracking",
+        "ads",
+    ];
+
+    let mut global_list = Vec::new();
+
+    for item in blocked.iter() {
+        global_list.append(&mut fetch_list(item).await?);
+    }
+
+    global_list.sort();
+    global_list.dedup();
+
+    build_set_file("all", global_list)?;
 
     Ok(())
 }
